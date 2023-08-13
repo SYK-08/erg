@@ -156,3 +156,13 @@ pub(crate) fn uri_to_path(uri: &NormalizedUrl) -> PathBuf {
 pub(crate) fn denormalize(uri: Url) -> Url {
     Url::parse(&uri.as_str().replace("c:", "file:///c%3A")).unwrap()
 }
+
+pub(crate) fn project_root_of(cwd: &Path) -> PathBuf {
+    let mut path = cwd.to_path_buf();
+    while !path.join("package.er").exists() || !path.join(".git").exists() {
+        if !path.pop() {
+            break;
+        }
+    }
+    path
+}

@@ -1,3 +1,6 @@
+use std::env::current_dir;
+use std::ffi::OsStr;
+use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -13,13 +16,16 @@ use erg_compiler::erg_parser::parse::Parsable;
 use erg_compiler::error::CompileErrors;
 
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, NumberOrString, Position, PublishDiagnosticsParams, Range, Url,
+    Diagnostic, DiagnosticSeverity, NumberOrString, Position, ProgressParams, ProgressParamsValue,
+    PublishDiagnosticsParams, Range, Url, WorkDoneProgress, WorkDoneProgressBegin,
+    WorkDoneProgressCreateParams, WorkDoneProgressEnd, WorkDoneProgressReport,
 };
 use serde_json::json;
 
+use crate::_log;
 use crate::diff::{ASTDiff, HIRDiff};
 use crate::server::{send, send_log, AnalysisResult, DefaultFeatures, ELSResult, Server};
-use crate::util::{self, NormalizedUrl};
+use crate::util::{self, project_root_of, NormalizedUrl};
 
 impl<Checker: BuildRunnable, Parser: Parsable> Server<Checker, Parser> {
     pub(crate) fn get_ast(&self, uri: &NormalizedUrl) -> Option<Module> {
@@ -236,6 +242,97 @@ impl<Checker: BuildRunnable, Parser: Parsable> Server<Checker, Parser> {
                     }
                     sleep(Duration::from_millis(500));
                 }
+            },
+            fn_name!(),
+        );
+    }
+
+    fn project_files(dir: PathBuf) -> Vec<NormalizedUrl> {
+        let mut uris = vec![];
+        for entry in dir.read_dir().unwrap() {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            if entry.path().extension() == Some(OsStr::new("er")) {
+                let uri = NormalizedUrl::from_file_path(entry.path()).unwrap();
+                uris.push(uri);
+            } else if entry.path().is_dir() {
+                uris.extend(Self::project_files(entry.path()));
+            }
+        }
+        uris
+    }
+
+    pub(crate) fn start_workspace_diagnostics(&mut self) {
+        let mut _self = self.clone();
+        spawn_new_thread(
+            move || {
+                _log!("start workspace diagnostics");
+                sleep(Duration::from_secs(1));
+                let token = NumberOrString::String("els/start_workspace_diagnostics".to_string());
+                let progress_token = WorkDoneProgressCreateParams {
+                    token: token.clone(),
+                };
+                let _ = send(&json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "window/workDoneProgress/create",
+                    "params": progress_token,
+                }));
+                let project_root = project_root_of(&current_dir().unwrap());
+                let src_dir = if project_root.join("src").exists() {
+                    project_root.join("src")
+                } else {
+                    project_root
+                };
+                let uris = Self::project_files(src_dir);
+                let progress_begin = WorkDoneProgressBegin {
+                    title: "Checking workspace".to_string(),
+                    cancellable: Some(false),
+                    message: Some(format!("checked 0/{} files", uris.len())),
+                    percentage: Some(0),
+                };
+                let params = ProgressParams {
+                    token: token.clone(),
+                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::Begin(progress_begin)),
+                };
+                let _ = send(&json!({
+                    "jsonrpc": "2.0",
+                    "method": "$/progress",
+                    "params": params,
+                }));
+                let len = uris.len();
+                for (i, uri) in uris.into_iter().enumerate() {
+                    let code = _self.file_cache.get_entire_code(&uri).unwrap();
+                    let _ = _self.check_file(uri, code);
+                    let percentage = (i + 1) as f64 / len as f64 * 100.0;
+                    let progress = WorkDoneProgressReport {
+                        cancellable: Some(false),
+                        message: Some(format!("checked {}/{len} files", i + 1)),
+                        percentage: Some(percentage as u32),
+                    };
+                    let params = ProgressParams {
+                        token: token.clone(),
+                        value: ProgressParamsValue::WorkDone(WorkDoneProgress::Report(progress)),
+                    };
+                    let _ = send(&json!({
+                        "jsonrpc": "2.0",
+                        "method": "$/progress",
+                        "params": params,
+                    }));
+                }
+                let progress_end = WorkDoneProgressEnd {
+                    message: Some(format!("checked {len} files")),
+                };
+                let params = ProgressParams {
+                    token: token.clone(),
+                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(progress_end)),
+                };
+                let _ = send(&json!({
+                    "jsonrpc": "2.0",
+                    "method": "$/progress",
+                    "params": params,
+                }));
             },
             fn_name!(),
         );
