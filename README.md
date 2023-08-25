@@ -75,7 +75,7 @@
 
     Even for and while expressions are just one of the subroutines, so this is possible.
 
-    ```python
+    ```Python
     loop! block! = while! do! True, block!
 
     # equals to `while! do(True), do! print! "hello"`
@@ -86,7 +86,7 @@
 3. Functional & Object-oriented
 
     Erg is a pure object-oriented language. Everything is an object; types, functions, and operators are all objects. On the other hand, Erg is also a functional language.
-    Erg requires some kinds of markers to be placed on code that causes side effects or changes internal state, which can localize the complexity of code. This will greatly improve the maintainability of your code.
+    Erg requires some kinds of markers to be placed on code that cause side effects or change the internal state, which can localize the complexity of code. This will greatly improve the maintainability of your code.
 
     ```python
     # Functional style (immutable), same as `sorted(list)` in Python
@@ -180,7 +180,7 @@ cargo build --release
 
 ### Building by Nix
 
-If you've been installed [Nix](https://nixos.org/), the following command will be generate binary into `result/bin/erg` under the project.
+If you've installed [Nix](https://nixos.org/), the following command will generate binary into `result/bin/erg` under the project.
 
 ```sh
 git clone https://github.com/erg-lang/erg.git
@@ -227,7 +227,7 @@ Other flags:
 ## Contribution
 
 Contributions are always welcome!
-To get started with contributions, please look [CONTRIBUTING.md](https://github.com/erg-lang/erg/blob/main/CONTRIBUTING.md).
+To get started with contributions, please look at [CONTRIBUTING.md](https://github.com/erg-lang/erg/blob/main/CONTRIBUTING.md).
 
 If you have any questions, please feel free to ask them on the [Discord channel](https://discord.gg/zfAAUbgGr4).
 
@@ -235,4 +235,4 @@ If you have any questions, please feel free to ask them on the [Discord channel]
 
 All files in the [assets](./assets) and [doc](./doc) folders are licensed with [CC-BY-4.0](./doc/LICENSE). The rest of the files in this repository are licensed with [Apache License 2.0](./LICENSE-APACHE) + [MIT License](./LICENSE-MIT).
 
-For credits about third party crates, see [THIRD_PARTY_CREDITS.md](./THIRD_PARTY_CREDITS.md).
+For credits about third-party crates, see [THIRD_PARTY_CREDITS.md](./THIRD_PARTY_CREDITS.md).
